@@ -55,7 +55,8 @@ else:
 if head:
     model = nn.Sequential(backbone, head)
 else:
-    model = backbone
+    model = nn.Sequential(backbone)
+
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
 device = torch.device('cuda:4') 

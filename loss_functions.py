@@ -14,6 +14,7 @@ class TripletLoss(nn.Module):
         dist_mat = torch.cdist(embeddings, embeddings)**2
         triplet_loss = torch.tensor(0.0, device=device, requires_grad=True) 
         number_of_triplets_mined = 0
+        # Online Triplet Mining
         for c in classes_in_batch:
             ap_indices = (labels == c).nonzero()
             if embeddings[ap_indices].reshape(-1, embedding_dimension).shape[0] < 2:
@@ -55,7 +56,7 @@ class AngularMarginLoss(nn.Module):
         self.cross_entropy_loss = nn.CrossEntropyLoss(reduction="mean")
 
     def forward(self, embeddings, weights, labels):
-        # Note: Embeddings and weights must be l2-normalized before passed to this loss function!
+        # Note: Embeddings and weights are assumed to be l2-normalized before passed to this loss function!
         device = embeddings.device
         self.m.to(device)
         self.s.to(device)

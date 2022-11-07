@@ -10,6 +10,40 @@ from configfile import *
 # Split into train step, validation step, etc.
 # Train a simple linear classifier on non-classifier-based methods to evaluate performance
 # For classifier-based methods (softmax and arcface), just use the class. head to evaluate.
+# NOTE: Switch to linear-classifier-on-embeddings for validation accuracy for ALL models!
+# Also, train_history should be the same (but can have empty lists for some keys)
+# Let the plot function determine how to plot things depending on what it gets
+
+class BaseTrainer:
+    def __init__(self, model, train_dataloader, val_dataloader, loss_function, optimizer, max_epochs, device):
+        self.model = model
+        self.train_dataloader = train_dataloader
+        self.val_dataloader = val_dataloader
+        self.loss_function = loss_function
+        self.optimizer = optimizer
+        self.max_epochs = max_epochs
+        self.device = device
+        self.val_steps = len(self.train_dataloader) // 5
+        self.early_stopper = EarlyStopper()
+        self.train_history = {"train_loss":[], "train_accuracy":[], "val_loss":[], "val_accuracy":[]}
+
+    def train(self):
+        pass
+
+    def train_step(self):
+        pass
+
+    def compute_loss(self):
+        pass
+
+    def validation_step(self):
+        pass
+
+    def validate(self):
+        pass
+
+    def save_plot(self, filename):
+        pass
 
 def train_classifier(model, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
     train_history = {"train_loss":[], "train_accuracy":[], "val_loss":[], "val_accuracy":[]}
@@ -107,7 +141,7 @@ def train_triplet(model, train_dataloader, val_dataloader, loss_function, optimi
                 train_loss = np.mean(train_losses)
             pbar_string = f"Epoch {epoch}/{epochs-1} | TripletLoss: Train={train_loss:.3f} Val={val_loss:.3f}"
             pbar.set_description(pbar_string)
-        torch.save(model.state_dict(), join(checkpoints_path, "best.pth"))
+        torch.save(model[0].state_dict(), join(checkpoints_path, "best.pth"))
     return train_history
 
 def train_arcface(model, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
