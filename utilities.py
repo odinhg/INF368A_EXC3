@@ -5,6 +5,8 @@ from os.path import join
 from tqdm import tqdm
 from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
+import random
+from torchvision import transforms
 
 def save_train_plot(filename, train_history):
     # Plot losses and accuracies from training
@@ -62,14 +64,14 @@ def sample_df(df, n=100):
         n = df.shape[0]
     return df.sample(n, random_state=420)
 
-def save_embeddings(classifier, class_idx, dataloader, filename, device):
+def save_embeddings(backbone, class_idx, dataloader, filename, device):
     # Compute and save embeddings to pickled dataframes
     embeddings = []
-    classifier.eval()
+    backbone.eval()
     with torch.no_grad():
         for data in tqdm(dataloader):
             images, labels, indicies = data[0].to(device), data[1].to(device), data[2].to(device)
-            activations_second_last_layer = classifier(images, return_activations=True) #We don't care about predictions, just embeddings
+            activations_second_last_layer = backbone(images) #We don't care about predictions, just embeddings
             embeddings += [[int(class_idx[label]), int(index)]  + activation for activation, label, index in zip(activations_second_last_layer.cpu().detach().tolist(), labels.cpu().detach().tolist(), indicies.cpu().detach().tolist())]
     df = pd.DataFrame(data=embeddings)
     df.columns = ["label_idx", "image_idx"] + [f"X{i}" for i in range(1, df.shape[1] - 1)]
@@ -111,3 +113,19 @@ def save_accuracy_plot(accuracies, n_samples, method, figs_path):
     filename = join(figs_path, filename)
     plt.savefig(filename)
     print(f"Saved plot to {filename}.")
+
+class RandomAugmentationModule:
+    """
+    For generating random transforms for SimCLR training
+    """
+    def __init__(self, image_size = (128, 128)):
+        self.image_size = image_size
+    
+    def generate_transform(self):
+        tfs = []
+        tfs.append(transforms.RandomRotation(180, fill=1))
+        tfs.append(transforms.RandomResizedCrop(self.image_size))
+        tfs.append(transforms.ColorJitter(brightness=.2, hue=.3))
+        gaussian_kernel_size = 2 * random.randint(0,5) + 1
+        tfs.append(transforms.GaussianBlur(gaussian_kernel_size))
+        return transforms.Compose(tfs)

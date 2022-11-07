@@ -4,8 +4,8 @@ import torch.optim as optim
 from os import listdir, makedirs
 from os.path import isfile, join, exists
 from dataloader import FlowCamDataLoader
-from backbone import BackBone
-from loss_functions import TripletLoss, AngularMarginLoss
+from backbone import BackBone, ClassifierHead, ProjectionHead
+from loss_functions import TripletLoss, AngularMarginLoss, NTXentLoss
 
 torch.manual_seed(0)
 
@@ -32,15 +32,31 @@ number_of_classes = len(class_names)
 train_dataloader, val_dataloader, test_dataloader, _ = FlowCamDataLoader(class_names, image_size, val, test,  batch_size)
 
 # Model
-classifier = BackBone(number_of_classes)
-optimizer = optim.Adam(classifier.parameters(), lr=lr)
+embedding_dimension = 128
+backbone = BackBone(embedding_dimension)
 
 if model_type == "triplet":
+    # Triplet Margin Loss Model
     loss_function = TripletLoss(margin=margin)
+    head = None
 elif model_type == "arcface":
+    # Angular Margin Loss Model
     loss_function = AngularMarginLoss(m=margin, s=scale, number_of_classes=number_of_classes)
+    head = ClassifierHead(embedding_dimension, number_of_classes) 
+elif model_type == "simclr":
+    # SimCLR based Model
+    loss_function = NTXentLoss(t=temperature)
+    head = ProjectionHead(embedding_dimension)
 else:
+    # Classic SoftMax Classifier Model
     loss_function = nn.CrossEntropyLoss()
+    head = ClassifierHead(embedding_dimension, number_of_classes) 
+
+if head:
+    model = nn.Sequential(backbone, head)
+else:
+    model = backbone
+optimizer = optim.Adam(model.parameters(), lr=lr)
 
 device = torch.device('cuda:4') 
 

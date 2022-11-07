@@ -1,11 +1,17 @@
 import torch
 from tqdm import tqdm
 import numpy as np
-from utilities import EarlyStopper
+from utilities import EarlyStopper, RandomAugmentationModule
 from os.path import join
 from configfile import *
 
-def train_classifier(classifier, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
+# Lots of repeating code here...
+# TODO: Create a universal BaseTrainer class
+# Split into train step, validation step, etc.
+# Train a simple linear classifier on non-classifier-based methods to evaluate performance
+# For classifier-based methods (softmax and arcface), just use the class. head to evaluate.
+
+def train_classifier(model, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
     train_history = {"train_loss":[], "train_accuracy":[], "val_loss":[], "val_accuracy":[]}
     steps = len(train_dataloader) // 5 #Compute validation and train loss 5 times every epoch
     earlystop = EarlyStopper()
@@ -15,7 +21,7 @@ def train_classifier(classifier, train_dataloader, val_dataloader, loss_function
         for i, data in enumerate((pbar := tqdm(train_dataloader))):
             images, labels  = data[0].to(device), data[1].to(device)
             optimizer.zero_grad()
-            outputs = classifier(images)
+            outputs = model(images)
             loss = loss_function(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -31,11 +37,11 @@ def train_classifier(classifier, train_dataloader, val_dataloader, loss_function
                 correct = 0
                 total = 0
                 val_losses = []
-                classifier.eval()
+                model.eval()
                 with torch.no_grad():
                     for data in val_dataloader:
                         images, labels = data[0].to(device), data[1].to(device)
-                        outputs = classifier(images)
+                        outputs = model(images)
                         val_losses.append(loss_function(outputs, labels).item())
                         _, predicted = torch.max(outputs.data, 1)
                         total += labels.size(0)
@@ -43,7 +49,8 @@ def train_classifier(classifier, train_dataloader, val_dataloader, loss_function
                     val_accuracy = 100.0 * correct / total
                     val_loss = np.mean(val_losses)
                 if train_history["val_accuracy"] and val_accuracy > np.max(train_history["val_accuracy"]):
-                    torch.save(classifier.state_dict(), join(checkpoints_path, "best.pth"))
+                    # Save weights for backbone only (not head)
+                    torch.save(model[0].state_dict(), join(checkpoints_path, "best.pth"))
                 train_history["train_loss"].append(train_loss)
                 train_history["train_accuracy"].append(train_accuracy)
                 train_history["val_loss"].append(val_loss)
@@ -53,11 +60,11 @@ def train_classifier(classifier, train_dataloader, val_dataloader, loss_function
                 if earlystop(val_loss):
                     print(f"Early stopped at epoch {epoch}")
                     return train_history
-                classifier.train()
+                model.train()
     return train_history
 
 
-def train_triplet(classifier, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
+def train_triplet(model, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
     train_history = {"train_loss":[], "val_loss":[]}
     steps = len(train_dataloader) // 5 #Compute validation and train loss 5 times every epoch
     negative_policy = "semi-hard"
@@ -75,7 +82,7 @@ def train_triplet(classifier, train_dataloader, val_dataloader, loss_function, o
         for i, data in enumerate((pbar := tqdm(train_dataloader))):
             images, labels  = data[0].to(device), data[1].to(device)
             optimizer.zero_grad()
-            outputs = classifier(images, return_activations=True)
+            outputs = model(images)
 
             loss = loss_function(outputs, labels, negative_policy, positive_policy)
             loss.backward()
@@ -85,25 +92,25 @@ def train_triplet(classifier, train_dataloader, val_dataloader, loss_function, o
             if i % steps == steps - 1:
                 train_losses = []
                 val_losses = []
-                classifier.eval()
+                model.eval()
                 with torch.no_grad():
                     for data in val_dataloader:
                         images, labels = data[0].to(device), data[1].to(device)
-                        outputs = classifier(images, return_activations=True)
+                        outputs = model(images)
                         val_losses.append(loss_function(outputs, labels, negative_policy="hard", positive_policy="hard").item())
                     val_loss = np.mean(val_losses)
                 loss_function.mine_hard_triplets = False
                 train_history["train_loss"].append(train_loss)
                 train_history["val_loss"].append(val_loss)
-                classifier.train()
+                model.train()
             if train_losses:
                 train_loss = np.mean(train_losses)
             pbar_string = f"Epoch {epoch}/{epochs-1} | TripletLoss: Train={train_loss:.3f} Val={val_loss:.3f}"
             pbar.set_description(pbar_string)
-        torch.save(classifier.state_dict(), join(checkpoints_path, "best.pth"))
+        torch.save(model.state_dict(), join(checkpoints_path, "best.pth"))
     return train_history
 
-def train_arcface(classifier, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
+def train_arcface(model, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
     train_history = {"train_loss":[], "train_accuracy":[], "val_loss":[], "val_accuracy":[]}
     steps = len(train_dataloader) // 5 #Compute validation and train loss 5 times every epoch
     earlystop = EarlyStopper()
@@ -113,8 +120,9 @@ def train_arcface(classifier, train_dataloader, val_dataloader, loss_function, o
         for i, data in enumerate((pbar := tqdm(train_dataloader))):
             images, labels  = data[0].to(device), data[1].to(device)
             optimizer.zero_grad()
-            embeddings, outputs = classifier(images, return_activations_and_output=True)
-            weights = classifier.get_normalized_weights()
+            embeddings = model[0](images)
+            outputs = model[1](embeddings)
+            weights = model[1].get_weights(normalize=True)
             loss = loss_function(embeddings, weights, labels)
             loss.backward()
             optimizer.step()
@@ -130,12 +138,13 @@ def train_arcface(classifier, train_dataloader, val_dataloader, loss_function, o
                 correct = 0
                 total = 0
                 val_losses = []
-                classifier.eval()
+                model.eval()
                 with torch.no_grad():
                     for data in val_dataloader:
                         images, labels = data[0].to(device), data[1].to(device)
-                        embeddings, outputs = classifier(images, return_activations_and_output=True)
-                        weights = classifier.get_normalized_weights()
+                        embeddings = model[0](images)
+                        outputs = model[1](embeddings)
+                        weights = model[1].get_weights(normalize=True)
                         val_losses.append(loss_function(embeddings, weights, labels).item())
                         _, predicted = torch.max(outputs.data, 1)
                         total += labels.size(0)
@@ -143,7 +152,7 @@ def train_arcface(classifier, train_dataloader, val_dataloader, loss_function, o
                     val_accuracy = 100.0 * correct / total
                     val_loss = np.mean(val_losses)
                 if train_history["val_accuracy"] and val_accuracy > np.max(train_history["val_accuracy"]):
-                    torch.save(classifier.state_dict(), join(checkpoints_path, "best.pth"))
+                    torch.save(model[0].state_dict(), join(checkpoints_path, "best.pth"))
                 train_history["train_loss"].append(train_loss)
                 train_history["train_accuracy"].append(train_accuracy)
                 train_history["val_loss"].append(val_loss)
@@ -153,5 +162,56 @@ def train_arcface(classifier, train_dataloader, val_dataloader, loss_function, o
                 if earlystop(val_loss):
                     print(f"Early stopped at epoch {epoch}")
                     return train_history
-                classifier.train()
+                model.train()
+    return train_history
+
+def train_simclr(model, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
+    train_history = {"train_loss":[], "val_loss":[]}
+    steps = len(train_dataloader) // 5 #Compute validation and train loss 5 times every epoch
+    RAM = RandomAugmentationModule()
+    for epoch in range(epochs):
+        train_losses = []
+        val_loss = 0
+        train_loss = 0
+        
+        for i, data in enumerate((pbar := tqdm(train_dataloader))):
+            images, labels  = data[0].to(device), data[1].to(device)
+            optimizer.zero_grad()
+            
+            #SimCLR forward
+            t1 = RAM.generate_transform()
+            t2 = RAM.generate_transform()
+            v1 = t1(images)
+            v2 = t2(images)
+            z1 = model(v1)
+            z2 = model(v2)
+            loss = loss_function(z1, z2)
+
+            loss.backward()
+            optimizer.step()
+            train_losses.append(loss.item())
+            
+            if i % steps == steps - 1:
+                train_losses = []
+                val_losses = []
+                model.eval()
+                with torch.no_grad():
+                    for data in val_dataloader:
+                        images, labels = data[0].to(device), data[1].to(device)
+                        t1 = RAM.generate_transform()
+                        t2 = RAM.generate_transform()
+                        v1 = t1(images)
+                        v2 = t2(images)
+                        z1 = model(v1)
+                        z2 = model(v2)
+                        val_losses.append(loss_function(z1, z2).item())
+                    val_loss = np.mean(val_losses)
+                train_history["train_loss"].append(train_loss)
+                train_history["val_loss"].append(val_loss)
+                model.train()
+            if train_losses:
+                train_loss = np.mean(train_losses)
+            pbar_string = f"Epoch {epoch}/{epochs-1} | TripletLoss: Train={train_loss:.3f} Val={val_loss:.3f}"
+            pbar.set_description(pbar_string)
+        torch.save(model[0].state_dict(), join(checkpoints_path, "best.pth"))
     return train_history
