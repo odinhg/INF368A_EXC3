@@ -69,32 +69,30 @@ class AngularMarginLoss(nn.Module):
 
 class NTXentLoss(nn.Module):
     # Normalized Temperature-scaled Cross Entropy Loss for SimCLR
-    def __init__(self, t, eps=1e-16):
+    def __init__(self, t):
         super().__init__()
         self.t = torch.tensor(t) # Temperature
-        self.eps = torch.tensor(eps)
 
     def forward(self, z1, z2):
         device = z1.device
         self.t.to(device)
-        self.eps.to(device)
         # Normalize embeddings
         z1 = nn.functional.normalize(z1, p=2, dim=1)
         z2 = nn.functional.normalize(z2, p=2, dim=1)
         batch_size = z1.shape[0]
         # Interleave embeddings from the two views (odd / even)
         z = torch.stack((z1, z2), dim=1).view(2*batch_size, -1)
-        # Compute cosine similarity
+        # Compute cosine similarity, divide by temperature and exponentiate
         similarities = torch.matmul(z, z.t())
         similarities = similarities / self.t
         exp_sim = torch.exp(similarities)
-        
+        # Computing the denominator of l(i,j) 
         mask = 1 - torch.eye(2*batch_size, device=device)
         denominator = torch.sum(exp_sim * mask, dim=1)
         denominator = denominator.expand(batch_size*2, -1).t()
+        # l(i,j) = L[i,j]
         L = -torch.log(torch.div(exp_sim, denominator))
+        # Only sum the entries l(2k, 2k+1) and l(2k+1, 2k)
         mask = torch.block_diag(*(1 - torch.eye(2, device=device)).unsqueeze(0).repeat(batch_size,1,1))
         loss = torch.sum(L * mask) / (2 * batch_size)
         return loss
-
-

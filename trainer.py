@@ -211,7 +211,7 @@ def train_simclr(model, train_dataloader, val_dataloader, loss_function, optimiz
                 model.train()
             if train_losses:
                 train_loss = np.mean(train_losses)
-            pbar_string = f"Epoch {epoch}/{epochs-1} | TripletLoss: Train={train_loss:.3f} Val={val_loss:.3f}"
+            pbar_string = f"Epoch {epoch}/{epochs-1} | NTXentLoss: Train={train_loss:.3f} Val={val_loss:.3f}"
             pbar.set_description(pbar_string)
         torch.save(model[0].state_dict(), join(checkpoints_path, "best.pth"))
     return train_history

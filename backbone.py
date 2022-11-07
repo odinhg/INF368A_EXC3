@@ -83,10 +83,10 @@ class BackBone(nn.Module):
         super().__init__()
         #Use EfficientNet V2 with small weights as base
         pretrained = efficientnet_v2_s(weights=EfficientNet_V2_S_Weights.IMAGENET1K_V1)
-        #Cut off last layers. Input (-1, 3, 128, 128), Output (-1, 64, 16, 16) 
+        #Cut off last layers
         self.feature_extractor = nn.Sequential(*list(list(pretrained.children())[:-2][0].children())[:-4])
         for param in self.feature_extractor.parameters():
-                param.requires_grad = False
+                param.requires_grad = True #False
         #Extra conv layers. Output (-1, 64, 8, 8)
         self.extra_layers = nn.Sequential(
                     ConvBlock(),
