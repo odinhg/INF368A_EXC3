@@ -207,8 +207,9 @@ def train_arcface(model, train_dataloader, val_dataloader, loss_function, optimi
 
 def train_simclr(model, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
     train_history = {"train_loss":[], "val_loss":[]}
-    steps = len(train_dataloader) // 2 #5 #Compute validation and train loss 5 times every epoch
+    steps = len(train_dataloader) // 4 #5 #Compute validation and train loss 5 times every epoch
     RAM = RandomAugmentationModule()
+    val_acc = []
     for epoch in range(epochs):
         train_losses = []
         val_loss = 0
@@ -237,6 +238,7 @@ def train_simclr(model, train_dataloader, val_dataloader, loss_function, optimiz
                 model.eval()
                 with torch.no_grad():
                     # Embed validation data via backbone
+                    """
                     X_val, y_val = [], []
                     for data in val_dataloader:
                         images, labels = data[0].to(device), data[1].to(device)
@@ -259,8 +261,9 @@ def train_simclr(model, train_dataloader, val_dataloader, loss_function, optimiz
                     simple_classifier.fit(X_train, y_train)
                     predictions = simple_classifier.predict(X_val)
                     accuracy = balanced_accuracy_score(y_val, predictions)
-                    print(f"Acc: {accuracy*100:.4f}%")
-
+                    print(f"{accuracy*100:.4f}")
+                    val_acc.append(accuracy)
+                    """
 
                     for data in val_dataloader:
                         images, labels = data[0].to(device), data[1].to(device)
@@ -281,4 +284,5 @@ def train_simclr(model, train_dataloader, val_dataloader, loss_function, optimiz
             pbar_string = f"Epoch {epoch}/{epochs-1} | NTXentLoss: Train={train_loss:.3f} Val={val_loss:.3f}"
             pbar.set_description(pbar_string)
         torch.save(model[0].state_dict(), join(checkpoints_path, "best.pth"))
+    print(val_acc)
     return train_history
