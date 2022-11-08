@@ -68,8 +68,6 @@ class ProjectionHead(nn.Module):
         self.layers = nn.Sequential(
                         nn.Linear(self.embedding_dimension, self.hidden_dimension),
                         nn.ReLU(),
-                        nn.Linear(self.hidden_dimension, self.hidden_dimension),
-                        nn.ReLU(),
                         nn.Linear(self.hidden_dimension, self.output_dimension)
         )
         self.layers.apply(init_weights)
