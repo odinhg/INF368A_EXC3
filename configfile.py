@@ -52,7 +52,7 @@ elif model_type == "arcface":
 elif model_type == "simclr":
     # SimCLR based Model
     loss_function = NTXentLoss(t=temperature)
-    head = ProjectionHead(embedding_dimension, hidden_dimension=512, output_dimension=64)
+    head = ProjectionHead(embedding_dimension)
 else:
     # Classic SoftMax Classifier Model
     loss_function = nn.CrossEntropyLoss()
