@@ -87,9 +87,21 @@ For each of the six classes appearing in our training data, we now display
 
 
 ## Task 6
+As in previous exercises, we now train simple classifiers (Linear, SVC and kNN) on unseen classes using the embeddings learned by our SimCLR implementation.
+
 ![](figs/simclr/accuracy_Linear.png)
 ![](figs/simclr/accuracy_SVC.png)
 ![](figs/simclr/accuracy_kNN.png)
 
+These results are the best so far! For example, using a Support Vector Classifier, we achieve around 80% accuracy training only on 90 our of 3000 images. This can potentially save a lot of manual labour. The linear classifier and SVC seems to perform slightly better than the kNN classifier. But this might even out if we spend some effort on tuning hyper-parameters. In practice, I think all three should be considered as worthy candidates. If we have very few labels, then I think we should go for the linear classifier or the SVC based on these results.
+
 ## Task 7
-SimCLR is pretty cool 8-)
+- A standard SoftMax classifier can give useful embeddings (on this small dataset at least).
+- Triplet loss can easily collapse if mining is not done right.
+- SimCLR works surprisingly well (on this small dataset).
+- Actually, SimCLR outperformed the other models... Maybe the other models overfit on the training data, preventing it from learning general features of plankton?
+
+I will train all the models on a bigger dataset with more classes after this assignment. Maybe it will be easier to spot differences between performances in that case. With the current dataset, SimCLR performed best. And a batch size of 256 was sufficient, so it was not too memory expensive. SimCLR is the only self-supervised method of the ones I have implemented. So if labelling is expensive, self-supervised is the way to go. If labels are cheap, I would expect some of the semi-supervised or supervised methods to do better.
+
+
+
