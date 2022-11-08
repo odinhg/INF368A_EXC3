@@ -10,7 +10,6 @@ from trainer import train_classifier, train_triplet, train_arcface, train_simclr
 from torchsummary import summary
 
 if __name__ == "__main__":
-    #Use custom backbone based on EfficientNet v2
     summary(model, (3, *image_size), device=device)
     model.to(device)
 

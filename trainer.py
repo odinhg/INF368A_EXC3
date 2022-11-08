@@ -4,6 +4,12 @@ import numpy as np
 from utilities import EarlyStopper, RandomAugmentationModule
 from os.path import join
 from configfile import *
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import balanced_accuracy_score
+from sklearn.svm import SVC
 
 # Lots of repeating code here...
 # TODO: Create a universal BaseTrainer class
@@ -201,7 +207,7 @@ def train_arcface(model, train_dataloader, val_dataloader, loss_function, optimi
 
 def train_simclr(model, train_dataloader, val_dataloader, loss_function, optimizer, epochs, device):
     train_history = {"train_loss":[], "val_loss":[]}
-    steps = len(train_dataloader) // 5 #Compute validation and train loss 5 times every epoch
+    steps = len(train_dataloader) // 2 #5 #Compute validation and train loss 5 times every epoch
     RAM = RandomAugmentationModule()
     for epoch in range(epochs):
         train_losses = []
@@ -230,6 +236,32 @@ def train_simclr(model, train_dataloader, val_dataloader, loss_function, optimiz
                 val_losses = []
                 model.eval()
                 with torch.no_grad():
+                    # Embed validation data via backbone
+                    X_val, y_val = [], []
+                    for data in val_dataloader:
+                        images, labels = data[0].to(device), data[1].to(device)
+                        embeddings = model[0](images)
+                        X_val += embeddings.cpu().detach().tolist()
+                        y_val += labels.cpu().detach().tolist()
+                    X_val = pd.DataFrame(X_val)
+                    y_val = pd.Series(y_val)
+
+                    X_train, y_train = [], []
+                    for data in train_dataloader:
+                        images, labels = data[0].to(device), data[1].to(device)
+                        embeddings = model[0](images)
+                        X_train += embeddings.cpu().detach().tolist()
+                        y_train += labels.cpu().detach().tolist()
+                    X_train = pd.DataFrame(X_train)
+                    y_train = pd.Series(y_train)
+
+                    simple_classifier = make_pipeline(StandardScaler(), SVC(gamma="auto"))
+                    simple_classifier.fit(X_train, y_train)
+                    predictions = simple_classifier.predict(X_val)
+                    accuracy = balanced_accuracy_score(y_val, predictions)
+                    print(f"Acc: {accuracy*100:.4f}%")
+
+
                     for data in val_dataloader:
                         images, labels = data[0].to(device), data[1].to(device)
                         t1 = RAM.generate_transform()
@@ -239,6 +271,7 @@ def train_simclr(model, train_dataloader, val_dataloader, loss_function, optimiz
                         z1 = model(v1)
                         z2 = model(v2)
                         val_losses.append(loss_function(z1, z2).item())
+
                     val_loss = np.mean(val_losses)
                 train_history["train_loss"].append(train_loss)
                 train_history["val_loss"].append(val_loss)

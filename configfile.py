@@ -29,8 +29,14 @@ class_names_unseen = [class_names_all[i] for i in class_idx_unseen]
 number_of_classes = len(class_names)
 
 #Load custom dataset
-train_dataloader, val_dataloader, test_dataloader, _ = FlowCamDataLoader(class_names, image_size, val, test,  batch_size)
-
+data = FlowCamDataLoader(class_names, image_size, val, test,  batch_size)
+train_dataloader = data["train_dataloader"]
+val_dataloader = data["val_dataloader"]
+test_dataloader = data["test_dataloader"]
+train_dataset = data["train_dataset"]
+val_dataset = data["val_dataset"]
+test_dataset = data["test_dataset"]
+    
 # Model
 embedding_dimension = 128
 backbone = BackBone(embedding_dimension)

@@ -12,9 +12,8 @@ from dataloader import FlowCamDataLoader
 if __name__ == "__main__":
     if not isfile(join(checkpoints_path, "best.pth")):
         exit("No checkpoint found! Please run training before evaluating model.")
-    backbone.to(device)
-    #Load custom dataset
-    train_dataloader, val_dataloader, test_dataloader, _ = FlowCamDataLoader(class_names, image_size, val, test,  batch_size)
+    model[0].to(device)
+    #Load the classes that the model has never seen before
     unseen_dataloader = FlowCamDataLoader(class_names_unseen, image_size=image_size, batch_size=batch_size, split=False)
     print("Loading checkpoint.")
     backbone.load_state_dict(torch.load(join(checkpoints_path, "best.pth")))
