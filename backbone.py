@@ -81,6 +81,7 @@ class ProjectionHead(nn.Module):
 class BackBone(nn.Module):
     def __init__(self, embedding_dimension=128):
         super().__init__()
+        self.embedding_dimension = embedding_dimension
         #Use EfficientNet V2 with small weights as base
         pretrained = efficientnet_v2_s(weights=EfficientNet_V2_S_Weights.IMAGENET1K_V1)
         #Cut off last layers
@@ -94,7 +95,7 @@ class BackBone(nn.Module):
                     nn.MaxPool2d(kernel_size=2, stride=2))
         #Fully connected layers.
         self.fc1 = nn.Sequential(
-                nn.Linear(4096, 128), 
+                nn.Linear(4096, self.embedding_dimension), 
                 nn.LeakyReLU(),
                 nn.Dropout(0.2))
         self.fc1.apply(init_weights)

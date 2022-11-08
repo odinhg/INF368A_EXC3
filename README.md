@@ -26,7 +26,7 @@ See `utilities.py` for implementation details.
 
 ### Projection Head
 
-The projection head consists of three fully connected layers with a ReLU activation functions in-between:
+The projection head consists of three fully connected layers with ReLU activation functions in-between:
 
 ```
 nn.Linear(self.embedding_dimension, self.hidden_dimension),
@@ -54,19 +54,30 @@ The following plot shows training and validation loss:
 
 ## Task 2 
 
-### Average Distances
+### Average Angular Distances
+For the classes the model has trained on, we see some separation in terms of average angular distances. It seems a bit confused about the classes `Rhabdonellidae`, `Odontella` and `Neoceratium`. But overall, when taking into account that this is unsupervised learning, I am pretty happy with these results.
+
 ![](figs/simclr/average_angular_distances_test.png)
 
+For the unseen classes, the average distances looks even better than all previous methods (SoftMax, triplet loss and ArcFace). This may indicate that we have actually learned some important features without overfitting on our training data.
 ![](figs/simclr/average_angular_distances_unseen.png)
 
 ## Task 3
 
-Where did task 3 go?
+Where did task 3 go anyways?
 
 ## Task 4
+Here we visualize a 2-dimensional projection of the embeddings using UMAP. The separation is not very clear, but there seems to be some clustering going on. It might be that the clustering is better in the embedding space (where we have $128$ dimensions).
+
 ![](figs/simclr/umap_embeddings.png)
 
 ## Task 5
+For each of the six classes appearing in our training data, we now display
+ 
+- The five images in the same class closest to the class center,
+- The five images in the same class furthest away from the class center, and
+- The five images from other classes closest to the class center.
+
 ![](figs/simclr/close_faraway_closeotherclass_class_0.png)
 ![](figs/simclr/close_faraway_closeotherclass_class_1.png)
 ![](figs/simclr/close_faraway_closeotherclass_class_2.png)
